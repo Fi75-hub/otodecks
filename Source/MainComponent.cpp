@@ -43,6 +43,9 @@ MainComponent::MainComponent()
     
     setSize(1200, 800);
 
+    mixerSource.addInputSource(&player1, false);
+    mixerSource.addInputSource(&player2, false);
+
     // Request audio permissions
     if (RuntimePermissions::isRequired(RuntimePermissions::recordAudio)
         && !RuntimePermissions::isGranted(RuntimePermissions::recordAudio))
@@ -64,13 +67,7 @@ MainComponent::~MainComponent()
 // Prepare to play
 void MainComponent::prepareToPlay(int samplesPerBlockExpected, double sampleRate)
 {
-    player1.prepareToPlay(samplesPerBlockExpected, sampleRate);
-    player2.prepareToPlay(samplesPerBlockExpected, sampleRate);
-    
     mixerSource.prepareToPlay(samplesPerBlockExpected, sampleRate);
-
-    mixerSource.addInputSource(&player1, false);
-    mixerSource.addInputSource(&player2, false);
 }
 
 // Get next audio block
@@ -82,8 +79,6 @@ void MainComponent::getNextAudioBlock(const AudioSourceChannelInfo& bufferToFill
 // Release resources
 void MainComponent::releaseResources()
 {
-    player1.releaseResources();
-    player2.releaseResources();
     mixerSource.releaseResources();
 }
 

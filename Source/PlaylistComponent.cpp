@@ -1,6 +1,7 @@
 #include "PlaylistComponent.h"
 #include <fstream>
 #include <sstream>
+#include <cmath>
 
 // Styled button for deck loading
 StyledPlaylistButton::StyledPlaylistButton(const String& name, Colour accent)
@@ -184,6 +185,9 @@ void PlaylistComponent::loadLibraryFromFile()
                 continue;
             }
             
+            if (line.empty())
+                continue;
+
             std::string title, filepath, durationStr;
             
             if (line[0] == '"')
@@ -203,13 +207,29 @@ void PlaylistComponent::loadLibraryFromFile()
                 }
             }
             
+            if (filepath.empty() || durationStr.empty())
+                continue;
+
+            double duration = 0.0;
+            try
+            {
+                size_t parsed = 0;
+                duration = std::stod(durationStr, &parsed);
+                if (parsed != durationStr.size() || !std::isfinite(duration) || duration < 0.0)
+                    continue;
+            }
+            catch (const std::exception&)
+            {
+                continue;
+            }
+
             File audioFile(filepath);
             if (audioFile.existsAsFile())
             {
                 TrackInfo track;
                 track.title = String(title);
                 track.filePath = String(filepath);
-                track.duration = std::stod(durationStr);
+                track.duration = duration;
                 trackLibrary.push_back(track);
             }
         }
@@ -404,7 +424,7 @@ void PlaylistComponent::paintCell(Graphics& g,
                                   int height,
                                   bool rowIsSelected)
 {
-    if (rowNumber >= static_cast<int>(filteredIndices.size()))
+    if (rowNumber < 0 || rowNumber >= static_cast<int>(filteredIndices.size()))
         return;
         
     int libraryIndex = filteredIndices[rowNumber];
@@ -491,7 +511,7 @@ var PlaylistComponent::getDragSourceDescription(const SparseSet<int>& rowsToDesc
     for (int i = 0; i < rowsToDescribe.size(); ++i)
     {
         int row = rowsToDescribe[i];
-        if (row < static_cast<int>(filteredIndices.size()))
+        if (row >= 0 && row < static_cast<int>(filteredIndices.size()))
         {
             int libraryIndex = filteredIndices[row];
             files.add(trackLibrary[libraryIndex].filePath);
@@ -527,10 +547,10 @@ void PlaylistComponent::buttonClicked(Button* button)
         int rowNumber = componentId.substring(0, underscorePos).getIntValue();
         int deckNumber = componentId.substring(underscorePos + 1).getIntValue();
         
-        if (rowNumber < static_cast<int>(filteredIndices.size()))
+        if (rowNumber >= 0 && rowNumber < static_cast<int>(filteredIndices.size()))
         {
             int libraryIndex = filteredIndices[rowNumber];
-            const auto& track = trackLibrary[libraryIndex];
+            const auto track = trackLibrary[libraryIndex];
             
             if (componentId.endsWith("_DEL"))
             {

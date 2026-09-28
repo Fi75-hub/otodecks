@@ -28,3 +28,4 @@ JUCE/
 *.app/
 library.csv
 hotcues.csv
+equalization.csv

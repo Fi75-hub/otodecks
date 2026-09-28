@@ -32,7 +32,7 @@ void WaveformDisplay::paint(Graphics& g)
     g.setColour(Colour(40, 40, 45));
     g.drawRoundedRectangle(bounds.reduced(1), 4, 1);
 
-    if (fileLoaded)
+    if (fileLoaded && audioThumb.getTotalLength() > 0.0)
     {
         // Draw waveform with gradient effect
         // Calculate visible range based on zoom
@@ -178,7 +178,7 @@ void WaveformDisplay::resized()
 
 void WaveformDisplay::mouseDown(const MouseEvent& event)
 {
-    if (fileLoaded)
+    if (fileLoaded && audioThumb.getTotalLength() > 0.0)
     {
         isDragging = true;
         
@@ -207,7 +207,7 @@ void WaveformDisplay::mouseDown(const MouseEvent& event)
 
 void WaveformDisplay::mouseDrag(const MouseEvent& event)
 {
-    if (fileLoaded && isDragging)
+    if (fileLoaded && isDragging && audioThumb.getTotalLength() > 0.0)
     {
         // Calculate position from drag location respecting zoom
         double totalLength = audioThumb.getTotalLength();
@@ -245,7 +245,7 @@ void WaveformDisplay::loadURL(URL audioURL)
 {
     audioThumb.clear();
     fileLoaded = audioThumb.setSource(new URLInputSource(audioURL)); // Load URL
-    if (fileLoaded)
+    if (fileLoaded && audioThumb.getTotalLength() > 0.0)
     {
         DBG("Waveform: File loaded successfully");
         repaint();
@@ -294,7 +294,7 @@ void WaveformDisplay::setLoopPoints(double start, double end)
 
 void WaveformDisplay::mouseWheelMove(const MouseEvent& event, const MouseWheelDetails& wheel)
 {
-    if (fileLoaded)
+    if (fileLoaded && audioThumb.getTotalLength() > 0.0)
     {
         // Adjust zoom factor based on wheel delta
         double newZoom = zoomFactor + wheel.deltaY * 5.0; // Sensitivity adjust

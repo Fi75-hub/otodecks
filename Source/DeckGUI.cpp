@@ -906,7 +906,7 @@ void DeckGUI::buttonClicked(Button* button)
     }
     if (button == &loadButton)
     {
-        auto fileChooserFlags = FileBrowserComponent::canSelectFiles;
+        auto fileChooserFlags = FileBrowserComponent::openMode | FileBrowserComponent::canSelectFiles;
         fChooser.launchAsync(fileChooserFlags, [this](const FileChooser& chooser)
         {
             File chosenFile = chooser.getResult();
@@ -1066,10 +1066,9 @@ void DeckGUI::timerCallback()
 // Load file
 void DeckGUI::loadFile(URL audioURL)
 {
-    if (player != nullptr)
-    {
-        player->loadURL(audioURL);
-    }
+    if (player == nullptr || !player->loadURL(audioURL))
+        return;
+
     waveformDisplay.loadURL(audioURL);
     
     // Update track name label
@@ -1087,6 +1086,9 @@ void DeckGUI::loadFile(URL audioURL)
     // Reset control variables
     cuePoint = 0.0;
     isLooping = false;
+    loopButton.setToggleState(false, dontSendNotification);
+    isSyncing = false;
+    syncButton.setToggleState(false, dontSendNotification);
     
     // Reset BPM display
     detectedBPM = 0.0;

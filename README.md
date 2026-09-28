@@ -17,15 +17,21 @@ Developed by Faizan Ilyas as the Object Oriented Programming midterm project. Th
 
 ## Dependencies
 
-- A desktop C++ toolchain supported by the chosen JUCE release.
+- Visual Studio 2022 with the **Desktop development with C++** workload on Windows. Other platforms need a JUCE-supported compiler.
 - [CMake](https://cmake.org/download/) 3.22 or later.
-- The [JUCE source tree](https://github.com/juce-framework/JUCE), including its modules and build scripts.
+- The [JUCE 8.0.10 source tree](https://github.com/juce-framework/JUCE/tree/8.0.10), including its modules and build scripts.
 
-JUCE is an external dependency and is not bundled. The original archive does not record a tested JUCE release. Its Projucer configuration includes `juce_audio_processors_headless`, so a recent JUCE 8 source tree is the starting point for that route; compatibility must be checked by building. CMake is the primary documented build route.
+JUCE is supplied separately. The Windows build workflow uses JUCE 8.0.10 and MSVC. MinGW is not supported by JUCE 8.
 
 ## Build with CMake
 
-Place JUCE next to this repository:
+Download JUCE 8.0.10 or clone it next to this repository:
+
+```sh
+git clone --depth 1 --branch 8.0.10 https://github.com/juce-framework/JUCE.git ../JUCE
+```
+
+The folders should look like this:
 
 ```text
 workspace/
@@ -52,8 +58,6 @@ cmake -S . -B build -DJUCE_SOURCE_DIR="/path/to/JUCE" -DCMAKE_BUILD_TYPE=Release
 
 On Windows, run these commands with a Visual Studio C++ toolchain installed; CMake can use an installed Visual Studio generator. Generated binaries are under `build/OtoDecks_artefacts/`, with configuration-specific subfolders depending on the generator.
 
-CMake generates `JuceHeader.h` for the application. Source files include this generated header through the build system's include paths; no hand-written copy is required.
-
 ### Projucer alternative
 
 `OtoDecks.jucer` is retained from the original project. Open it in a compatible Projucer version, confirm that the JUCE module paths point to your installation, select an exporter suitable for your system and save the project before opening the generated IDE project. The stored paths use `../JUCE/modules`. Generated `Builds/` and `JuceLibraryCode/` directories are intentionally excluded from version control.
@@ -66,7 +70,7 @@ CMake generates `JuceHeader.h` for the application. Source files include this ge
 4. Use **SYNC** to adjust a deck's playback rate using the BPM estimates. This does not guarantee beat-accurate alignment.
 5. Press `F11` to toggle fullscreen and Escape to leave fullscreen.
 
-The application stores `library.csv` and `hotcues.csv` inside an `OtoDecks` folder in the operating system's user application-data directory. Library entries contain local file paths; audio files are not copied into the application. No music files or personal library records are included in this repository.
+The application stores `library.csv`, `hotcues.csv` and `equalization.csv` inside an `OtoDecks` folder in the operating system's user application-data directory. Library entries contain local file paths; audio files are not copied into the application. No music files or personal library records are included in this repository.
 
 ## Code organisation
 
@@ -80,12 +84,22 @@ The application stores `library.csv` and `hotcues.csv` inside an `OtoDecks` fold
 | `MainComponent` | Deck, mixer and library integration |
 | `Main.cpp` | Application lifecycle and main window |
 
-## Validation and limitations
+## Tests
 
-Source references and project-file structure were checked during portfolio preparation. The generated-header includes and JUCE paths were made portable, and the CMake MP3 option was aligned with the existing Projucer setting. The application has **not been compiled or run** as part of this preparation; build compatibility and audio behaviour still need validation with a JUCE installation and desktop toolchain.
+The [Windows build workflow](https://github.com/Fi75-hub/otodecks/actions/workflows/build.yml) compiles the application and runs offline audio checks. To run the same checks locally:
 
-BPM analysis is a basic energy-based estimate rather than a professional beat grid. Sync changes playback speed, which can also affect pitch. CSV persistence assumes ordinary filenames and is not a general CSV database. This is a learning project, not a production DJ product.
+```sh
+cmake -S . -B build -DOTODECKS_BUILD_TESTS=ON
+cmake --build build --config Release
+ctest --test-dir build -C Release --output-on-failure
+```
+
+The tests generate a short WAV file and check playback, seeking, input validation, track replacement, echo reset and crossfader muting. They do not require an audio device. Listening quality, device selection and live interaction still need a manual desktop check.
+
+## Limitations
+
+BPM analysis uses a basic energy estimate and falls back to 120 BPM when it cannot identify enough peaks. Sync changes playback speed, which can also affect pitch. Library and cue persistence use simple CSV files; filenames containing quotation marks are not supported reliably.
 
 ## Acknowledgements
 
-Built with the [JUCE framework](https://juce.com/), which is supplied separately under its own licensing terms. The build instructions follow JUCE's [CMake documentation](https://github.com/juce-framework/JUCE/blob/master/docs/CMake%20API.md). The project was developed as university coursework; this repository does not assign a new license to the framework or any course-provided material.
+Built with the [JUCE framework](https://juce.com/), which is supplied separately under its own licensing terms. The build instructions follow JUCE's [CMake documentation](https://github.com/juce-framework/JUCE/blob/master/docs/CMake%20API.md). Developed as university coursework; any course-provided material retains its original terms.

@@ -18,6 +18,7 @@ void SimpleEcho::prepare(double sr)
     writeIndex = 0;
     // Default 375ms delay
     delaySamples = (int)(sampleRate * 0.375);
+    reset();
 }
 
 // Set delay time in milliseconds
@@ -54,6 +55,7 @@ void SimpleEcho::reset()
     std::fill(delayBufferL.begin(), delayBufferL.end(), 0.0f);
     std::fill(delayBufferR.begin(), delayBufferR.end(), 0.0f);
     writeIndex = 0;
+    lastL = lastR = 0.0f;
 }
 
 // Process stereo audio with echo effect
@@ -104,7 +106,6 @@ DJAudioPlayer::~DJAudioPlayer()
 void DJAudioPlayer::prepareToPlay(int samplesPerBlockExpected, double sampleRate) 
 {
     currentSampleRate = sampleRate;
-    transportSource.prepareToPlay(samplesPerBlockExpected, sampleRate);
     resampleSource.prepareToPlay(samplesPerBlockExpected, sampleRate);
     
     // Setup JUCE DSP ProcessSpec
@@ -136,11 +137,6 @@ void DJAudioPlayer::getNextAudioBlock(const AudioSourceChannelInfo& bufferToFill
     // Get audio from the resampled source
     resampleSource.getNextAudioBlock(bufferToFill);
     
-    // Apply crossfader gain
-    if (crossfaderGain < 1.0)
-    {
-        bufferToFill.buffer->applyGain(bufferToFill.startSample, bufferToFill.numSamples, (float)crossfaderGain);
-    }
 
     // Handle looping
     if (isLooping && loopEnd > loopStart)
@@ -203,6 +199,9 @@ void DJAudioPlayer::getNextAudioBlock(const AudioSourceChannelInfo& bufferToFill
         }
     }
     
+    // Fade the processed signal so effect tails are muted with the deck.
+    buffer->applyGain(startSample, numSamples, (float)crossfaderGain);
+
     // Calculate RMS levels for visualization
     if (buffer->getNumChannels() > 0)
     {
@@ -222,25 +221,35 @@ void DJAudioPlayer::getNextAudioBlock(const AudioSourceChannelInfo& bufferToFill
 // Release resources
 void DJAudioPlayer::releaseResources()
 {
-    transportSource.releaseResources();
     resampleSource.releaseResources();
 }
 
-void DJAudioPlayer::loadURL(URL audioURL)
+bool DJAudioPlayer::loadURL(URL audioURL)
 {
-    auto* reader = formatManager.createReaderFor(audioURL.createInputStream(false));
+    auto* reader = formatManager.createReaderFor(
+        audioURL.createInputStream(URL::InputStreamOptions(URL::ParameterHandling::inAddress)));
     if (reader != nullptr)
     {       
         std::unique_ptr<AudioFormatReaderSource> newSource(new AudioFormatReaderSource(reader, true)); 
         transportSource.setSource(newSource.get(), 0, nullptr, reader->sampleRate);             
         readerSource.reset(newSource.release());          
         
-        // Clear echo buffer for the new track
+        // Reset processing state when replacing a track.
         echo.reset();
+        reverb.reset();
+        for (int channel = 0; channel < 2; ++channel)
+        {
+            eqChain[channel].reset();
+            djFilter[channel].reset();
+        }
+        loopStart = loopEnd = 0.0;
+        isLooping = false;
         
         // Analyze BPM for the new track
         analyzeTrackForBPM();
+        return true;
     }
+    return false;
 }
 
 // Set gain
@@ -258,9 +267,9 @@ void DJAudioPlayer::setGain(double gain)
 // Set speed
 void DJAudioPlayer::setSpeed(double ratio)
 {
-    if (ratio < 0 || ratio > 100.0)
+    if (!std::isfinite(ratio) || ratio <= 0.0 || ratio > 100.0)
     {
-        DBG("DJAudioPlayer::setSpeed ratio should be between 0 and 100");
+        DBG("DJAudioPlayer::setSpeed ratio must be greater than 0 and no more than 100");
     }
     else {
         resampleSource.setResamplingRatio(ratio);
@@ -434,7 +443,8 @@ bool DJAudioPlayer::isPlaying() const
 // Get position relative
 double DJAudioPlayer::getPositionRelative()
 {
-    return transportSource.getCurrentPosition() / transportSource.getLengthInSeconds();
+    const double length = transportSource.getLengthInSeconds();
+    return length > 0.0 ? jlimit(0.0, 1.0, transportSource.getCurrentPosition() / length) : 0.0;
 }
 
 // Crossfader gain control
@@ -473,6 +483,8 @@ double DJAudioPlayer::getTrackLengthInSeconds() const
 // Analyze track for BPM
 void DJAudioPlayer::analyzeTrackForBPM()
 {
+    beatTimes.clear();
+    detectedBPM = 0.0;
     if (readerSource == nullptr)
     {
         detectedBPM = 0.0;

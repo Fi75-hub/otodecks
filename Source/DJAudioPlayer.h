@@ -41,7 +41,7 @@ class DJAudioPlayer : public AudioSource {
     void getNextAudioBlock (const AudioSourceChannelInfo& bufferToFill) override;
     void releaseResources() override;
 
-    void loadURL(URL audioURL);
+    bool loadURL(URL audioURL);
     void setGain(double gain);
     void setSpeed(double ratio);
     void setPosition(double posInSecs);
